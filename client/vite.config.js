@@ -7,10 +7,18 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['react-icons', 'react-hot-toast'],
-          'utils-vendor': ['axios', 'browser-image-compression'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react/') || id.includes('react-dom/') || id.includes('react-router-dom/')) {
+              return 'react-vendor';
+            }
+            if (id.includes('react-icons') || id.includes('react-hot-toast')) {
+              return 'ui-vendor';
+            }
+            if (id.includes('axios') || id.includes('browser-image-compression')) {
+              return 'utils-vendor';
+            }
+          }
         },
       },
     },
