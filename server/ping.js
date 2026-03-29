@@ -1,4 +1,4 @@
-const URL = "https://tvs-wms.onrender.com";
+const URL = "https://tvs-parts-list.onrender.com";
 
 console.log(`Keep-alive ping configured for: ${URL}`);
 
