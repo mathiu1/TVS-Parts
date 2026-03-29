@@ -18,7 +18,19 @@ connectDB();
 const app = express();
 
 // 1. Set security HTTP headers (Enterprise standard)
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "img-src": ["'self'", "data:", "blob:", "res.cloudinary.com", "*.cloudinary.com"],
+        "style-src": ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
+        "font-src": ["'self'", "fonts.gstatic.com"],
+        "connect-src": ["'self'"],
+      },
+    },
+  })
+);
 
 // 2. Global Rate Limiting: 100 requests per 15 minutes
 const limiter = rateLimit({
