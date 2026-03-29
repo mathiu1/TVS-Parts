@@ -28,16 +28,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (username, password, role = 'user') => {
-    setLoading(true);
-    try {
-      const { data } = await API.post('/auth/register', { username, password, role });
-      setUser(data);
-      localStorage.setItem('user', JSON.stringify(data));
-      return data;
-    } finally {
-      setLoading(false);
-    }
+  // Admin-only: create a new user without affecting the current session
+  const adminCreateUser = async (username, password, role = 'user') => {
+    const { data } = await API.post('/auth/register', { username, password, role });
+    return data;
   };
 
   const logout = () => {
@@ -48,7 +42,7 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, adminCreateUser, logout, loading, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

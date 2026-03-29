@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { HiOutlineLockClosed, HiOutlineUser, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
 import toast from 'react-hot-toast';
@@ -173,17 +173,11 @@ const LoginPage = () => {
           style={{
             textAlign: 'center',
             marginTop: '20px',
-            fontSize: '0.8rem',
+            fontSize: '0.75rem',
             color: 'var(--text-muted)',
           }}
         >
-          Don't have an account?{' '}
-          <Link
-            to="/register"
-            style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
-          >
-            Register
-          </Link>
+          Contact your admin to get an account
         </p>
       </div>
     </div>

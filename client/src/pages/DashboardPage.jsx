@@ -43,11 +43,11 @@ const DashboardPage = () => {
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [downloadTotalBytes, setDownloadTotalBytes] = useState(0);
 
-  // 500ms debounce for search input
+  // 300ms debounce for search input (snappier)
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
-    }, 500);
+    }, 300);
     return () => clearTimeout(handler);
   }, [search]);
 
@@ -57,7 +57,31 @@ const DashboardPage = () => {
   const [deletePart, setDeletePart] = useState(null);
   const [imagePart, setImagePart] = useState(null);
 
+  // Simple cache for prefetched pages to avoid redundant network hits
+  const prefetchCache = useRef({});
+
+  const prefetchPage = useCallback(async (targetPage) => {
+    if (targetPage < 1 || targetPage > totalPages || targetPage === page) return;
+    if (prefetchCache.current[targetPage]) return;
+
+    try {
+      const { data } = await API.get('/parts', {
+        params: { page: targetPage, limit: 25, search: debouncedSearch },
+      });
+      prefetchCache.current[targetPage] = data.parts;
+    } catch (err) {
+      // Fail silently for pre-fetching
+    }
+  }, [totalPages, page, debouncedSearch]);
+
   const fetchParts = useCallback(async () => {
+    // If we have cached data from a prefetch, use it immediately
+    if (prefetchCache.current[page]) {
+      setParts(prefetchCache.current[page]);
+      // We still might want to re-fetch in background to keep fresh, 
+      // but for speed we show cached first
+    }
+
     setLoading(true);
     try {
       const { data } = await API.get('/parts', {
@@ -66,6 +90,8 @@ const DashboardPage = () => {
       setParts(data.parts);
       setTotalPages(data.totalPages);
       setTotalParts(data.totalParts);
+      // Update cache
+      prefetchCache.current[page] = data.parts;
     } catch (err) {
       toast.error('Failed to load parts');
     } finally {
@@ -78,9 +104,10 @@ const DashboardPage = () => {
     fetchParts();
   }, [fetchParts]);
 
-  // Reset page when search term changes
+  // Reset page and cache when search term changes
   useEffect(() => {
     setPage(1);
+    prefetchCache.current = {};
   }, [debouncedSearch]);
 
   const handleDownloadZip = async () => {
@@ -332,6 +359,7 @@ const DashboardPage = () => {
             totalPages={totalPages}
             totalParts={totalParts}
             onPageChange={setPage}
+            onPrefetch={prefetchPage}
             onImageClick={(part) => setImagePart(part)}
             onEdit={(part) => setEditPart(part)}
             onDelete={(part) => setDeletePart(part)}

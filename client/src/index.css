@@ -319,15 +319,14 @@ body {
 }
 
 @media (max-width: 480px) {
+  .nav-logo-section {
+    gap: 6px !important;
+  }
   .nav-subtitle {
     display: none;
   }
   .nav-title {
-    font-size: 0.85rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 120px;
+    display: none;
   }
   .nav-user-name {
     max-width: 60px;

@@ -2,6 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const compression = require('compression');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const sanitize = require('./middleware/sanitize');
+const hpp = require('hpp');
 const connectDB = require('./config/db');
 
 // Load env vars
@@ -12,8 +17,38 @@ connectDB();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// 1. Set security HTTP headers (Enterprise standard)
+app.use(helmet());
+
+// 2. Global Rate Limiting: 100 requests per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  message: 'Too many requests from this IP, please try again in 15 minutes',
+  standardHeaders: true, 
+  legacyHeaders: false,
+});
+app.use('/api', limiter);
+
+// 3. NoSQL Injection protection (Custom Express 5 compatible)
+app.use(sanitize);
+
+// 4. HTTP Parameter Pollution protection
+app.use(hpp());
+
+// 6. Gzip compression
+app.use(compression());
+
+// 7. Configurable CORS
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://tvs-parts-list.onrender.com', 'https://tvs-wms.onrender.com'] 
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -39,15 +74,14 @@ require("./ping.js");
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../client/dist"), {
-    maxAge: '1d', // Cache static assets for 1 day
-    etag: false
+    maxAge: '7d',
+    etag: true,
+    immutable: true
   }));
-
 
   app.get(/.*/, (req, res) => {
     res.sendFile(path.resolve(__dirname, "../client/dist/index.html"));
   });
-
 }
 
 app.listen(PORT, () => {

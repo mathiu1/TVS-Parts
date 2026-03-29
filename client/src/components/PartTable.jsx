@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   HiOutlinePencil,
@@ -9,7 +9,18 @@ import {
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 
-const PartTable = ({ parts, page, totalPages, totalParts, onPageChange, onImageClick, onEdit, onDelete, onRefresh }) => {
+const PartTable = memo(({ 
+  parts, 
+  page, 
+  totalPages, 
+  totalParts, 
+  onPageChange, 
+  onPrefetch,
+  onImageClick, 
+  onEdit, 
+  onDelete, 
+  onRefresh 
+}) => {
   const { isAdmin } = useAuth();
 
   return (
@@ -248,6 +259,7 @@ const PartTable = ({ parts, page, totalPages, totalParts, onPageChange, onImageC
         >
           <button
             onClick={() => onPageChange(page - 1)}
+            onMouseEnter={() => page > 1 && onPrefetch(page - 1)}
             disabled={page <= 1}
             className="btn-ghost pagination-nav-btn"
             style={{
@@ -278,6 +290,7 @@ const PartTable = ({ parts, page, totalPages, totalParts, onPageChange, onImageC
                 <button
                   key={p}
                   onClick={() => onPageChange(p)}
+                  onMouseEnter={() => onPrefetch(p)}
                   className="pagination-num-btn"
                   style={{
                     padding: '6px 12px',
@@ -299,6 +312,7 @@ const PartTable = ({ parts, page, totalPages, totalParts, onPageChange, onImageC
 
           <button
             onClick={() => onPageChange(page + 1)}
+            onMouseEnter={() => page < totalPages && onPrefetch(page + 1)}
             disabled={page >= totalPages}
             className="btn-ghost pagination-nav-btn"
             style={{
@@ -314,7 +328,7 @@ const PartTable = ({ parts, page, totalPages, totalParts, onPageChange, onImageC
       )}
     </div>
   );
-};
+});
 
 // Smart page number generator
 function generatePageNumbers(current, total) {

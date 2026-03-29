@@ -43,7 +43,7 @@ const uploadToCloudinary = (buffer, publicId) => {
   });
 };
 
-// GET /api/parts — Paginated list with search
+// GET /api/parts — Paginated list with search (optimized)
 router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -57,10 +57,11 @@ router.get('/', protect, async (req, res) => {
 
     const [parts, total] = await Promise.all([
       Part.find(query)
+        .select('partNumber imageUrl createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('uploadedBy', 'username'),
+        .lean(),
       Part.countDocuments(query),
     ]);
 

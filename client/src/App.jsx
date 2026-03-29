@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 
 const RedirectIfAuth = ({ children }) => {
@@ -36,14 +35,6 @@ function App() {
             element={
               <RedirectIfAuth>
                 <LoginPage />
-              </RedirectIfAuth>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <RedirectIfAuth>
-                <RegisterPage />
               </RedirectIfAuth>
             }
           />

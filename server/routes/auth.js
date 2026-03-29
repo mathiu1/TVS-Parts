@@ -1,16 +1,27 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { protect, adminOnly } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 
 // Generate JWT
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '4h' });
 };
 
-// POST /api/auth/register
-router.post('/register', async (req, res) => {
+// Specific limiter for Auth routes: max 5 attempts per 15 mins
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many login/register attempts. Please try again after 15 minutes.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// POST /api/auth/register (Admin only)
+router.post('/register', authLimiter, protect, adminOnly, async (req, res) => {
   try {
     const { username, password, role } = req.body;
 
@@ -38,7 +49,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 

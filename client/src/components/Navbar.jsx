@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineLogout, HiOutlineShieldCheck, HiOutlineUser } from 'react-icons/hi';
+import { HiOutlineLogout, HiOutlineShieldCheck, HiOutlineUser, HiOutlineUserAdd } from 'react-icons/hi';
+import AddUserModal from './AddUserModal';
 
 const Navbar = () => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [showAddUser, setShowAddUser] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -12,93 +15,133 @@ const Navbar = () => {
   };
 
   return (
-    <nav
-      style={{
-        background: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--border)',
-        padding: '12px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        backdropFilter: 'blur(12px)',
-      }}
-    >
-      {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, var(--accent), #8b5cf6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: '0.8rem',
-            color: '#fff',
-          }}
-        >
-          TVS
-        </div>
-        <div>
-          <div className="nav-title">
-            Parts Manager
+    <>
+      <nav
+        style={{
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border)',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          backdropFilter: 'blur(12px)',
+        }}
+      >
+        {/* Logo */}
+        <div className="nav-logo-section" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, var(--accent), #8b5cf6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              color: '#fff',
+            }}
+          >
+            TVS
           </div>
-          <div className="nav-subtitle">
-            Warehouse System
+          <div>
+            <div className="nav-title">
+              Parts Manager
+            </div>
+            <div className="nav-subtitle">
+              Warehouse System
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* User Info + Logout */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            background: isAdmin ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-            border: `1px solid ${isAdmin ? 'rgba(139, 92, 246, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
-            fontSize: '0.75rem',
-            fontWeight: 600,
-          }}
-        >
-          {isAdmin ? (
-            <HiOutlineShieldCheck size={14} color="#8b5cf6" />
-          ) : (
-            <HiOutlineUser size={14} color="var(--accent)" />
+        {/* User Info + Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Add User Button (Admin only) */}
+          {isAdmin && (
+            <button
+              onClick={() => setShowAddUser(true)}
+              className="btn-ghost"
+              style={{
+                padding: '6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: '#8b5cf6',
+                borderColor: 'rgba(139, 92, 246, 0.3)',
+                background: 'rgba(139, 92, 246, 0.08)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
+                e.currentTarget.style.borderColor = '#8b5cf6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)';
+                e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+              }}
+              title="Add New User"
+            >
+              <HiOutlineUserAdd size={16} />
+              <span className="hide-text-mobile">Add User</span>
+            </button>
           )}
-          <span className="nav-user-name" style={{ color: isAdmin ? '#a78bfa' : 'var(--accent)' }}>
-            {user?.username}
-          </span>
+
+          {/* User badge */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: isAdmin ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+              border: `1px solid ${isAdmin ? 'rgba(139, 92, 246, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+              fontSize: '0.75rem',
+              fontWeight: 600,
+            }}
+          >
+            {isAdmin ? (
+              <HiOutlineShieldCheck size={14} color="#8b5cf6" />
+            ) : (
+              <HiOutlineUser size={14} color="var(--accent)" />
+            )}
+            <span className="nav-user-name" style={{ color: isAdmin ? '#a78bfa' : 'var(--accent)' }}>
+              {user?.username}
+            </span>
+          </div>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '6px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              transition: 'var(--transition)',
+            }}
+            onMouseEnter={(e) => (e.target.style.color = 'var(--danger)')}
+            onMouseLeave={(e) => (e.target.style.color = 'var(--text-muted)')}
+            title="Logout"
+          >
+            <HiOutlineLogout size={20} />
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            padding: '6px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'var(--transition)',
-          }}
-          onMouseEnter={(e) => (e.target.style.color = 'var(--danger)')}
-          onMouseLeave={(e) => (e.target.style.color = 'var(--text-muted)')}
-          title="Logout"
-        >
-          <HiOutlineLogout size={20} />
-        </button>
-      </div>
-    </nav>
+      </nav>
+
+      {/* Add User Modal */}
+      {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} />}
+    </>
   );
 };
 

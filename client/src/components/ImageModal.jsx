@@ -48,21 +48,41 @@ const ImageModal = ({ imageUrl, partNumber, onClose }) => {
       <div
         style={{
           position: 'absolute',
-          bottom: '24px',
+          bottom: '32px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.7)',
-          backdropFilter: 'blur(8px)',
-          padding: '8px 20px',
-          borderRadius: '20px',
-          fontSize: '0.85rem',
-          fontWeight: 600,
-          color: '#fff',
-          border: '1px solid rgba(255,255,255,0.1)',
+          background: 'rgba(15, 23, 42, 0.5)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          padding: '12px 24px',
+          borderRadius: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
           zIndex: 101,
+          whiteSpace: 'nowrap',
+          animation: 'fadeIn 0.4s ease-out',
         }}
       >
-        Part No : {partNumber}
+        <span style={{
+          color: 'var(--text-secondary)',
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          letterSpacing: '0.02em'
+        }}>
+          Part No :
+        </span>
+        <span style={{
+          color: '#fff',
+          fontSize: '1rem',
+          fontWeight: 800,
+          letterSpacing: '0.04em',
+          fontFamily: "'JetBrains Mono', monospace"
+        }}>
+          {partNumber}
+        </span>
       </div>
 
       {/* Image */}
