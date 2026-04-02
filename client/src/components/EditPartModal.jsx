@@ -6,6 +6,9 @@ import toast from 'react-hot-toast';
 
 const EditPartModal = ({ part, onClose, onSuccess }) => {
   const [partNumber, setPartNumber] = useState(part.partNumber);
+  const [description, setDescription] = useState(part.description || '');
+  const [location, setLocation] = useState(part.location || '');
+  const [uomDimension, setUomDimension] = useState(part.uomDimension || '');
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(part.imageUrl);
   const [loading, setLoading] = useState(false);
@@ -40,6 +43,9 @@ const EditPartModal = ({ part, onClose, onSuccess }) => {
     try {
       const formData = new FormData();
       formData.append('partNumber', partNumber.trim());
+      formData.append('description', description.trim());
+      formData.append('location', location.trim());
+      formData.append('uomDimension', uomDimension.trim());
       if (imageFile) {
         formData.append('image', imageFile);
       }
@@ -62,29 +68,13 @@ const EditPartModal = ({ part, onClose, onSuccess }) => {
   return (
     <div
       onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 80,
-        background: 'rgba(15, 23, 42, 0.4)',
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        animation: 'fadeIn 0.2s ease-out',
-      }}
+      className="modal-overlay"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="glass-card animate-slide-up"
-        style={{
-          width: '100%',
-          maxWidth: '440px',
-          padding: '24px',
-        }}
+        className="glass-card modal-content-responsive responsive-padding animate-slide-up"
       >
+        <div className="bottom-sheet-handle" />
         {/* Header */}
         <div
           style={{
@@ -134,9 +124,49 @@ const EditPartModal = ({ part, onClose, onSuccess }) => {
             value={partNumber}
             onChange={(e) => setPartNumber(e.target.value.replace(/\D/g, ''))}
             className="input-field"
-            style={{ marginBottom: '16px' }}
+            style={{ marginBottom: '24px' }}
             id="edit-part-number"
           />
+
+          {/* Part Description */}
+          <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Part Description
+          </label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="input-field"
+            placeholder="Part description"
+            style={{ marginBottom: '24px' }}
+          />
+
+          <div className="form-row-responsive">
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Location
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="input-field"
+                placeholder="Bin Location"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                UOM Dimension
+              </label>
+              <input
+                type="text"
+                value={uomDimension}
+                onChange={(e) => setUomDimension(e.target.value)}
+                className="input-field"
+                placeholder="Units/Size"
+              />
+            </div>
+          </div>
 
           {/* Image */}
           <label

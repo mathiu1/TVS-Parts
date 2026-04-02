@@ -7,6 +7,7 @@ const { createPasswordZip } = require('../utils/zip');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const lookupService = require('../utils/lookupService');
 
 const router = express.Router();
 
@@ -57,7 +58,7 @@ router.get('/', protect, async (req, res) => {
 
     const [parts, total] = await Promise.all([
       Part.find(query)
-        .select('partNumber imageUrl createdAt')
+        .select('partNumber description location uomDimension imageUrl createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -74,6 +75,15 @@ router.get('/', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+});
+
+// GET /api/parts/lookup/:partNumber — Fast lookup from Excel
+router.get('/lookup/:partNumber', protect, (req, res) => {
+  const details = lookupService.findPart(req.params.partNumber);
+  if (!details) {
+    return res.status(404).json({ message: 'Part not found in master list' });
+  }
+  res.json(details);
 });
 
 // GET /api/parts/:id — Single part
@@ -107,8 +117,13 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
     // Upload to Cloudinary with partNumber as public_id
     const result = await uploadToCloudinary(req.file.buffer, partNumber.trim());
 
+    const { description, location, uomDimension } = req.body;
+
     const part = await Part.create({
       partNumber: partNumber.trim(),
+      description,
+      location,
+      uomDimension,
       imageUrl: result.secure_url,
       cloudinaryPublicId: result.public_id,
       uploadedBy: req.user._id,
@@ -131,7 +146,7 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
       return res.status(404).json({ message: 'Part not found' });
     }
 
-    const { partNumber } = req.body;
+    const { partNumber, description, location, uomDimension } = req.body;
 
     // If partNumber changed, check for duplicates
     if (partNumber && partNumber.trim() !== part.partNumber) {
@@ -159,6 +174,9 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     }
 
     if (partNumber) part.partNumber = partNumber.trim();
+    if (description !== undefined) part.description = description;
+    if (location !== undefined) part.location = location;
+    if (uomDimension !== undefined) part.uomDimension = uomDimension;
 
     await part.save();
     res.json(part);
@@ -261,13 +279,16 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
     const worksheet = workbook.addWorksheet('TVS Parts');
 
     worksheet.columns = [
-      { key: 'partNumber', width: 30 },
+      { key: 'partNumber', width: 25 },
+      { key: 'description', width: 40 },
+      { key: 'location', width: 25 },
+      { key: 'uomDimension', width: 20 },
       { key: 'image', width: 45 },
     ];
 
     // Master Title Row
     worksheet.addRow(['TVS PARTS LIST REPORT']);
-    worksheet.mergeCells('A1:B1');
+    worksheet.mergeCells('A1:E1');
     const titleCell = worksheet.getCell('A1');
     titleCell.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Sleeker dark blue/gray
@@ -275,7 +296,7 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
     worksheet.getRow(1).height = 45;
 
     // Data Headers Row
-    worksheet.addRow(['Part Number', 'Original Image']);
+    worksheet.addRow(['Part Number', 'Description', 'Location', 'UOM Dimension', 'Original Image']);
     const headerRow = worksheet.getRow(2);
     headerRow.font = { size: 12, bold: true, color: { argb: 'FF1F2937' } };
     headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -296,12 +317,20 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
       const part = parts[i];
       const rowNumber = i + 3; // Row 1 is Title, Row 2 is Headers
 
+      // Process locations to be more readable in Excel (one per line)
+      const formattedLocation = part.location ? part.location.split(',').map(l => l.trim()).join('\n') : '-';
+
       // Cast partNumber to Number to avoid Excel's "number stored as text" green warning triangle
       const numericPartNumber = !isNaN(part.partNumber) ? Number(part.partNumber) : part.partNumber;
 
-      const row = worksheet.addRow({ partNumber: numericPartNumber });
+      const row = worksheet.addRow({ 
+        partNumber: numericPartNumber,
+        description: part.description || '-',
+        location: formattedLocation,
+        uomDimension: part.uomDimension || '-'
+      });
       row.height = 140; // Taller row for better image framing
-      row.alignment = { vertical: 'middle', horizontal: 'center' };
+      row.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
 
       // Apply borders to data cells
       row.eachCell((cell) => {
@@ -326,10 +355,11 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
         });
 
         // Cell coordinate positioning: 'tl' is 0-indexed top-left corner
+        // Repositioned to Column 5 (E) - index 4
         // Adjusted padding for perfect visual centering within the 45-width / 140-height cell
         worksheet.addImage(imageId, {
-          tl: { col: 1.2, row: rowNumber - 1 + 0.15 }, 
-          ext: { width: 150, height: 150 }, 
+          tl: { col: 4.15, row: rowNumber - 1 + 0.15 }, 
+          ext: { width: 170, height: 170 }, 
           editAs: 'oneCell' // Locks image so it moves/resizes nicely with the row
         });
       } catch (err) {

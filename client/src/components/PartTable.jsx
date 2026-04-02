@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   HiOutlinePencil,
@@ -8,6 +8,7 @@ import {
   HiOutlinePhotograph,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import LocationModal from './LocationModal';
 
 const PartTable = memo(({ 
   parts, 
@@ -22,6 +23,7 @@ const PartTable = memo(({
   onRefresh 
 }) => {
   const { isAdmin } = useAuth();
+  const [selectedLocationPart, setSelectedLocationPart] = useState(null);
 
   return (
     <div>
@@ -95,6 +97,45 @@ const PartTable = memo(({
               <th
                 style={{
                   padding: '12px 16px',
+                  textAlign: 'left',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                Part Description
+              </th>
+              <th
+                style={{
+                  padding: '12px 16px',
+                  textAlign: 'left',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                Location
+              </th>
+              <th
+                style={{
+                  padding: '12px 16px',
+                  textAlign: 'left',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                UOM Dimension
+              </th>
+              <th
+                style={{
+                  padding: '12px 16px',
                   textAlign: 'center',
                   fontWeight: 600,
                   color: 'var(--text-secondary)',
@@ -126,7 +167,7 @@ const PartTable = memo(({
             {parts.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isAdmin ? 4 : 3}
+                  colSpan={isAdmin ? 7 : 6}
                   style={{
                     padding: '40px 16px',
                     textAlign: 'center',
@@ -169,6 +210,61 @@ const PartTable = memo(({
                     }}
                   >
                     {part.partNumber}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 16px',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-primary)',
+                      maxWidth: '250px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                    title={part.description}
+                  >
+                    {part.description || '-'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 16px',
+                    }}
+                  >
+                    {part.location ? (
+                      (() => {
+                        const locs = part.location.split(',').map(l => l.trim()).filter(l => l);
+                        if (locs.length <= 1) {
+                          return (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                              {part.location}
+                            </span>
+                          );
+                        }
+                        return (
+                          <div 
+                            className="location-badge"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLocationPart(part);
+                            }}
+                          >
+                            <span style={{ fontSize: '0.8rem' }}>{locs[0]}</span>
+                            <span className="location-count">+{locs.length - 1}</span>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>-</span>
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 16px',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    {part.uomDimension || '-'}
                   </td>
                   <td style={{ padding: '8px 16px', textAlign: 'center' }}>
                     <button
@@ -325,6 +421,14 @@ const PartTable = memo(({
             <span className="hide-text-mobile">Next</span> <HiOutlineChevronRight size={16} />
           </button>
         </div>
+      )}
+      {/* Location Modal */}
+      {selectedLocationPart && (
+        <LocationModal 
+          partNumber={selectedLocationPart.partNumber}
+          locations={selectedLocationPart.location}
+          onClose={() => setSelectedLocationPart(null)}
+        />
       )}
     </div>
   );

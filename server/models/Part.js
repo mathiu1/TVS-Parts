@@ -9,6 +9,18 @@ const partSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    description: {
+      type: String,
+      trim: true,
+    },
+    location: {
+      type: String,
+      trim: true,
+    },
+    uomDimension: {
+      type: String,
+      trim: true,
+    },
     imageUrl: {
       type: String,
       required: [true, 'Image URL is required'],
@@ -19,7 +31,7 @@ const partSchema = new mongoose.Schema(
     },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'tvs-parts-list-user',
+      ref: 'User',
       required: true,
     },
   },
@@ -27,6 +39,6 @@ const partSchema = new mongoose.Schema(
 );
 
 // Text index for fast search
-partSchema.index({ partNumber: 'text' });
+partSchema.index({ partNumber: 'text', description: 'text' });
 
 module.exports = mongoose.model('Part', partSchema);

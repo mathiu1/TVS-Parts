@@ -8,12 +8,16 @@ const rateLimit = require('express-rate-limit');
 const sanitize = require('./middleware/sanitize');
 const hpp = require('hpp');
 const connectDB = require('./config/db');
+const lookupService = require('./utils/lookupService');
 
 // Load env vars
 dotenv.config();
 
 // Connect to database
 connectDB();
+
+// Initialize the lookup service (load data once)
+lookupService.init();
 
 const app = express();
 
@@ -34,10 +38,10 @@ app.use(
 
 // 2. Global Rate Limiting: 100 requests per 15 minutes
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Too many requests from this IP, please try again in 15 minutes',
-  standardHeaders: true, 
+  standardHeaders: true,
   legacyHeaders: false,
 });
 app.use('/api', limiter);
@@ -53,8 +57,8 @@ app.use(compression());
 
 // 7. Configurable CORS
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://tvs-parts-list.onrender.com', 'https://tvs-wms.onrender.com'] 
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://tvs-parts-list.onrender.com', 'https://tvs-wms.onrender.com']
     : ['http://localhost:5173', 'http://localhost:3000'],
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true,
