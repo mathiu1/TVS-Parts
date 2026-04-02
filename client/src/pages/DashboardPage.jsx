@@ -37,7 +37,7 @@ const DashboardPage = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showDownloadMenu]);
-  
+
   // Download Modal state
   const [downloadStatus, setDownloadStatus] = useState(null); // 'preparing', 'downloading', 'complete', 'error'
   const [downloadedBytes, setDownloadedBytes] = useState(0);
@@ -47,7 +47,7 @@ const DashboardPage = () => {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
-    }, 300);
+    }, 600);
     return () => clearTimeout(handler);
   }, [search]);
 
