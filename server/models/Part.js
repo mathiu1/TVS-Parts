@@ -27,7 +27,7 @@ const partSchema = new mongoose.Schema(
     },
     cloudinaryPublicId: {
       type: String,
-      required: true,
+      required: false,
     },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,

@@ -27,7 +27,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "img-src": ["'self'", "data:", "blob:", "res.cloudinary.com", "*.cloudinary.com"],
+        "img-src": ["'self'", "data:", "blob:", "res.cloudinary.com", "*.cloudinary.com", "*.amazonaws.com"],
         "style-src": ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
         "font-src": ["'self'", "fonts.gstatic.com"],
         "connect-src": ["'self'"],
@@ -35,6 +35,8 @@ app.use(
     },
   })
 );
+
+require("./ping.js");
 
 // 2. Global Rate Limiting: 100 requests per 15 minutes
 const limiter = rateLimit({
@@ -86,7 +88,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-require("./ping.js");
+
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../client/dist"), {
