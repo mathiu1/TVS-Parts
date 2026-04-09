@@ -16,7 +16,7 @@ const SearchBar = ({ value, onChange }) => {
       />
       <input
         type="text"
-        placeholder="Search part number..."
+        placeholder="Search parts..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="input-field"

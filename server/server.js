@@ -41,7 +41,7 @@ require("./ping.js");
 // 2. Global Rate Limiting: 100 requests per 15 minutes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000, // Increased for dynamic dashboard polling
   message: 'Too many requests from this IP, please try again in 15 minutes',
   standardHeaders: true,
   legacyHeaders: false,

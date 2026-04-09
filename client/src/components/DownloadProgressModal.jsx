@@ -1,6 +1,6 @@
 import { HiOutlineDownload, HiOutlineExclamationCircle, HiOutlineCheckCircle } from 'react-icons/hi';
 
-const DownloadProgressModal = ({ isOpen, totalImages, downloadedBytes, totalBytes, status }) => {
+const DownloadProgressModal = ({ isOpen, totalImages, downloadedBytes, totalBytes, status, serverProgress, onCancel }) => {
   if (!isOpen) return null;
 
   const percentage = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
@@ -95,7 +95,9 @@ const DownloadProgressModal = ({ isOpen, totalImages, downloadedBytes, totalByte
 
         {status === 'preparing' && (
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '20px' }}>
-            Fetching images from cloud server and compressing into archive. This might take a few moments.
+            {serverProgress?.type === 'Excel' 
+              ? 'Generating high-performance report with embedded images. This might take a few moments.' 
+              : 'Fetching images from cloud server and compressing into archive. This might take a few moments.'}
           </p>
         )}
 
@@ -153,7 +155,9 @@ const DownloadProgressModal = ({ isOpen, totalImages, downloadedBytes, totalByte
                   top: 0,
                   bottom: 0,
                   left: 0,
-                  width: status === 'preparing' ? '100%' : hasTotal ? `${percentage}%` : '100%',
+                  width: status === 'preparing' 
+                    ? (serverProgress?.total > 0 ? `${(serverProgress.current / serverProgress.total) * 100}%` : '100%') 
+                    : hasTotal ? `${percentage}%` : '100%',
                   background: 'linear-gradient(90deg, #1d4ed8, #3b82f6, #60a5fa)',
                   backgroundSize: '200% 100%',
                   borderRadius: '12px',
@@ -175,11 +179,43 @@ const DownloadProgressModal = ({ isOpen, totalImages, downloadedBytes, totalByte
               color: 'var(--text-muted)',
               padding: '0 4px'
             }}>
-              <span>{status === 'preparing' ? 'Initializing stream...' : 'Downloading...'}</span>
+              <span>
+                {status === 'preparing' 
+                  ? `${serverProgress?.type || 'File'} Build Progress: ${serverProgress?.current || 0} / ${serverProgress?.total || totalImages} processed...` 
+                  : 'Downloading to your device...'}
+              </span>
               <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                 {status === 'downloading' && hasTotal ? `${percentage}%` : ''}
+                {status === 'preparing' && serverProgress?.total > 0 
+                  ? `${Math.round((serverProgress.current / serverProgress.total) * 100)}%` 
+                  : ''}
               </span>
             </div>
+
+            <button
+              onClick={onCancel}
+              style={{
+                marginTop: '24px',
+                width: '100%',
+                padding: '10px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: 'var(--danger)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+              }}
+            >
+              Cancel Export
+            </button>
           </div>
         )}
       </div>

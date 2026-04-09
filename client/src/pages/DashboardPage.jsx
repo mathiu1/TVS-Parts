@@ -42,6 +42,47 @@ const DashboardPage = () => {
   const [downloadStatus, setDownloadStatus] = useState(null); // 'preparing', 'downloading', 'complete', 'error'
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [downloadTotalBytes, setDownloadTotalBytes] = useState(0);
+  const [serverProgress, setServerProgress] = useState({ current: 0, total: 0, type: '' });
+  const pollIntervalRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  // Clear polling and abort on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, []);
+
+  const startPolling = () => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const { data } = await API.get('/parts/export/status');
+        setServerProgress(data);
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 1000); // 1s interval is more stable for rate limiters
+  };
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  };
+
+  const handleCancelExport = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    stopPolling();
+    setDownloadStatus(null);
+    toast('Export cancelled', { icon: '🛑' });
+  };
+
 
   // 300ms debounce for search input (snappier)
   useEffect(() => {
@@ -114,9 +155,14 @@ const DashboardPage = () => {
     setDownloadStatus('preparing');
     setDownloadedBytes(0);
     setDownloadTotalBytes(0);
+    setServerProgress({ current: 0, total: 0, type: 'ZIP' });
+    startPolling();
+    abortControllerRef.current = new AbortController();
     try {
-      const response = await API.get('/parts/export/zip', {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const response = await API.get(`/parts/export/zip?token=${user.token}`, {
         responseType: 'blob',
+        signal: abortControllerRef.current.signal,
         timeout: 300000, // 5 min timeout for large exports
         onDownloadProgress: (progressEvent) => {
           if (progressEvent.loaded > 0) {
@@ -141,10 +187,12 @@ const DashboardPage = () => {
       window.URL.revokeObjectURL(url);
 
       toast.success('Download finished!');
+      stopPolling();
 
       // Close modal gracefully
       setTimeout(() => setDownloadStatus(null), 2500);
     } catch (err) {
+      stopPolling();
       setDownloadStatus('error');
       toast.error('Failed to download images');
       setTimeout(() => setDownloadStatus(null), 3500);
@@ -155,10 +203,15 @@ const DashboardPage = () => {
     setDownloadStatus('preparing');
     setDownloadedBytes(0);
     setDownloadTotalBytes(0);
+    setServerProgress({ current: 0, total: 0, type: 'Excel' });
     setShowDownloadMenu(false);
+    startPolling();
+    abortControllerRef.current = new AbortController();
     try {
-      const response = await API.get('/parts/export/excel', {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const response = await API.get(`/parts/export/excel?token=${user.token}`, {
         responseType: 'blob',
+        signal: abortControllerRef.current.signal,
         timeout: 300000,
         onDownloadProgress: (progressEvent) => {
           if (progressEvent.loaded > 0) {
@@ -183,10 +236,12 @@ const DashboardPage = () => {
       window.URL.revokeObjectURL(url);
 
       toast.success('Excel Download finished!');
+      stopPolling();
 
       // Close modal gracefully
       setTimeout(() => setDownloadStatus(null), 2500);
     } catch (err) {
+      stopPolling();
       setDownloadStatus('error');
       toast.error('Failed to download Excel report');
       setTimeout(() => setDownloadStatus(null), 3500);
@@ -406,6 +461,8 @@ const DashboardPage = () => {
         downloadedBytes={downloadedBytes}
         totalBytes={downloadTotalBytes}
         totalImages={totalParts}
+        serverProgress={serverProgress}
+        onCancel={handleCancelExport}
       />
     </div>
   );

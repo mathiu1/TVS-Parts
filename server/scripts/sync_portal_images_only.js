@@ -31,6 +31,9 @@ const getRequestBody = (from, size) => ({
       }
     }
   },
+  sort: [
+    { 'brandProductId.keyword': 'asc' }
+  ],
   ELASTIC_INDEX: 'ssindiapgandproducts'
 });
 
@@ -63,6 +66,8 @@ async function syncPartsWithValidation() {
     let totalValid = 0;
     let totalSkipped = 0;
     let hasMore = true;
+    const processedIds = new Set();
+    const uniqueValidIds = new Set();
 
     // Get total count first
     const initialResponse = await fetch(PORTAL_API, {
@@ -121,8 +126,16 @@ async function syncPartsWithValidation() {
         }));
 
         results.forEach(res => {
+          const pid = res.hit._source.brandProductId;
+          if (processedIds.has(pid)) {
+             // Skip redundant processing of the same ID in this run
+             return;
+          }
+          processedIds.add(pid);
+
           if (res.isValid) {
             validatedParts.push(res);
+            uniqueValidIds.add(pid);
           } else {
             totalSkipped++;
           }
@@ -164,7 +177,7 @@ async function syncPartsWithValidation() {
         hasMore = false;
       }
 
-      console.log(`📊 Progress: ${totalProcessed}/${totalParts} | Valid: ${totalValid} | Skipped: ${totalSkipped}`);
+      console.log(`📊 Progress: ${totalProcessed}/${totalParts} | Unique Valid: ${uniqueValidIds.size} | Skipped: ${totalSkipped}`);
     }
 
     // Final Cleanup: Remove bits from DB that were marked PORTAL but aren't in our new "Valid" list?
@@ -172,7 +185,8 @@ async function syncPartsWithValidation() {
     // If the user wants to REMOVE ones without images, I should do a final pass.
 
     console.log(`\n🎉 Sync Finished!`);
-    console.log(`✅ Total Valid Parts Synced: ${totalValid}`);
+    console.log(`✅ Total Unique Valid Parts: ${uniqueValidIds.size}`);
+    console.log(`✅ Total Records Processed: ${totalProcessed}`);
     console.log(`🚫 Total Invalid (No Image) Skipped: ${totalSkipped}`);
 
     process.exit(0);

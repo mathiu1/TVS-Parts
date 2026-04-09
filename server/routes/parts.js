@@ -11,6 +11,9 @@ const lookupService = require('../utils/lookupService');
 
 const router = express.Router();
 
+// Global progress tracker for long-running exports
+let exportProgress = { current: 0, total: 0, status: 'idle', type: '' };
+
 // Multer config — store in memory for Cloudinary upload
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -53,7 +56,12 @@ router.get('/', protect, async (req, res) => {
     const skip = (page - 1) * limit;
 
     const query = search
-      ? { partNumber: { $regex: search, $options: 'i' } }
+      ? {
+        $or: [
+          { partNumber: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+        ],
+      }
       : {};
 
     const [parts, total] = await Promise.all([
@@ -158,8 +166,10 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
 
     // If new image uploaded, re-upload to Cloudinary
     if (req.file) {
-      // Delete old image from Cloudinary
-      await cloudinary.uploader.destroy(part.cloudinaryPublicId);
+      // Delete old image from Cloudinary (if it exists)
+      if (part.cloudinaryPublicId) {
+        await cloudinary.uploader.destroy(part.cloudinaryPublicId);
+      }
 
       const newPublicId = partNumber ? partNumber.trim() : part.partNumber;
       const result = await uploadToCloudinary(req.file.buffer, newPublicId);
@@ -167,10 +177,12 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
       part.imageUrl = result.secure_url;
       part.cloudinaryPublicId = result.public_id;
     } else if (partNumber && partNumber.trim() !== part.partNumber) {
-      // If only partNumber changed (no new image), rename in Cloudinary
-      const newPublicId = `tvs-parts-list/${partNumber.trim()}`;
-      await cloudinary.uploader.rename(part.cloudinaryPublicId, newPublicId);
-      part.cloudinaryPublicId = newPublicId;
+      // If only partNumber changed (no new image), rename in Cloudinary (if it exists)
+      if (part.cloudinaryPublicId) {
+        const newPublicId = `tvs-parts-list/${partNumber.trim()}`;
+        await cloudinary.uploader.rename(part.cloudinaryPublicId, newPublicId);
+        part.cloudinaryPublicId = newPublicId;
+      }
     }
 
     if (partNumber) part.partNumber = partNumber.trim();
@@ -196,8 +208,10 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
       return res.status(404).json({ message: 'Part not found' });
     }
 
-    // Delete from Cloudinary
-    await cloudinary.uploader.destroy(part.cloudinaryPublicId);
+    // Delete from Cloudinary (if it exists)
+    if (part.cloudinaryPublicId) {
+      await cloudinary.uploader.destroy(part.cloudinaryPublicId);
+    }
 
     // Delete from DB
     await Part.findByIdAndDelete(req.params.id);
@@ -208,8 +222,19 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
+// GET /api/parts/export/status — Check progress of active export
+router.get('/export/status', protect, adminOnly, (req, res) => {
+  res.json(exportProgress);
+});
+
 // GET /api/parts/export/zip — Download all images as password-protected ZIP (Admin only)
 router.get('/export/zip', protect, adminOnly, async (req, res) => {
+  let isCancelled = false;
+  req.on('close', () => {
+    isCancelled = true;
+    console.log('🛑 ZIP Export cancelled by user.');
+  });
+
   try {
     const parts = await Part.find({});
 
@@ -217,9 +242,14 @@ router.get('/export/zip', protect, adminOnly, async (req, res) => {
       return res.status(404).json({ message: 'No parts to export' });
     }
 
+    // Initialize Tracker
+    exportProgress = { current: 0, total: parts.length, status: 'processing', type: 'ZIP' };
+
     // Fetch all images
     const files = [];
-    for (const part of parts) {
+    for (let i = 0; i < parts.length; i++) {
+      if (isCancelled) break;
+      const part = parts[i];
       try {
         const response = await axios.get(part.imageUrl, { responseType: 'arraybuffer' });
         const ext = part.imageUrl.split('.').pop().split('?')[0] || 'jpg';
@@ -227,12 +257,14 @@ router.get('/export/zip', protect, adminOnly, async (req, res) => {
           name: `${part.partNumber}.${ext}`,
           buffer: Buffer.from(response.data),
         });
+        exportProgress.current = i + 1;
       } catch (err) {
         console.warn(`Failed to fetch image for part ${part.partNumber}: ${err.message}`);
       }
     }
 
     if (files.length === 0) {
+      exportProgress.status = 'idle';
       return res.status(500).json({ message: 'Failed to fetch any images' });
     }
 
@@ -267,6 +299,12 @@ router.get('/export/zip', protect, adminOnly, async (req, res) => {
 
 // GET /api/parts/export/excel — Download all images and data as Excel (Admin only)
 router.get('/export/excel', protect, adminOnly, async (req, res) => {
+  let isCancelled = false;
+  req.on('close', () => {
+    isCancelled = true;
+    console.log('🛑 Excel Export cancelled by user.');
+  });
+
   try {
     const parts = await Part.find({});
 
@@ -286,24 +324,27 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
       { key: 'image', width: 45 },
     ];
 
-    // Master Title Row
-    worksheet.addRow(['TVS PARTS LIST REPORT']);
+    const totalParts = parts.length;
+    console.log(`📊 Exporting ${totalParts} parts to Excel with FULL IMAGE Support...`);
+
+    // Initialize Tracker
+    exportProgress = { current: 0, total: totalParts, status: 'processing', type: 'Excel' };
+
+    // Master Header (Fixed for standard mode)
+    worksheet.addRow(['TVS PARTS LIST REPORT - ' + new Date().toLocaleDateString()]);
     worksheet.mergeCells('A1:E1');
     const titleCell = worksheet.getCell('A1');
     titleCell.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Sleeker dark blue/gray
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
     titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
     worksheet.getRow(1).height = 45;
 
     // Data Headers Row
-    worksheet.addRow(['Part Number', 'Description', 'Location', 'UOM Dimension', 'Original Image']);
-    const headerRow = worksheet.getRow(2);
+    const headerRow = worksheet.addRow(['Part Number', 'Description', 'Location', 'UOM Dimension', 'Original Image']);
     headerRow.font = { size: 12, bold: true, color: { argb: 'FF1F2937' } };
     headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
     headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
     headerRow.height = 30;
-
-    // Apply borders to headers
     headerRow.eachCell((cell) => {
       cell.border = {
         top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
@@ -313,58 +354,73 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
       };
     });
 
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      const rowNumber = i + 3; // Row 1 is Title, Row 2 is Headers
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < totalParts; i += BATCH_SIZE) {
+      if (isCancelled) break;
+      const batch = parts.slice(i, i + BATCH_SIZE);
 
-      // Process locations to be more readable in Excel (one per line)
-      const formattedLocation = part.location ? part.location.split(',').map(l => l.trim()).join('\n') : '-';
+      const imageDataBatch = await Promise.all(batch.map(async (part) => {
+        try {
+          const response = await axios.get(part.imageUrl, {
+            responseType: 'arraybuffer',
+            timeout: 10000
+          });
+          const ext = part.imageUrl.split('.').pop().split('?')[0] || 'jpg';
+          return {
+            part,
+            buffer: Buffer.from(response.data),
+            extension: ext.toLowerCase() === 'png' ? 'png' : 'jpeg'
+          };
+        } catch (err) {
+          return { part, error: true };
+        }
+      }));
 
-      // Cast partNumber to Number to avoid Excel's "number stored as text" green warning triangle
-      const numericPartNumber = !isNaN(part.partNumber) ? Number(part.partNumber) : part.partNumber;
+      imageDataBatch.forEach((data, index) => {
+        const part = data.part;
+        const rowNumber = i + index + 3;
 
-      const row = worksheet.addRow({ 
-        partNumber: numericPartNumber,
-        description: part.description || '-',
-        location: formattedLocation,
-        uomDimension: part.uomDimension || '-'
-      });
-      row.height = 140; // Taller row for better image framing
-      row.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        const formattedLocation = part.location ? part.location.split(',').map(l => l.trim()).join('\n') : '-';
+        const numericPartNumber = !isNaN(part.partNumber) ? Number(part.partNumber) : part.partNumber;
 
-      // Apply borders to data cells
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-        };
-        // Ensure the font size is appropriately legible
-        cell.font = { size: 12 };
-      });
-
-      // Fetch original image arraybuffer
-      try {
-        const response = await axios.get(part.imageUrl, { responseType: 'arraybuffer' });
-        const ext = part.imageUrl.split('.').pop().split('?')[0] || 'jpg';
-        
-        const imageId = workbook.addImage({
-          buffer: Buffer.from(response.data),
-          extension: ext.toLowerCase() === 'png' ? 'png' : 'jpeg',
+        const row = worksheet.addRow({
+          partNumber: numericPartNumber,
+          description: part.description || '-',
+          location: formattedLocation,
+          uomDimension: part.uomDimension || '-'
         });
 
-        // Cell coordinate positioning: 'tl' is 0-indexed top-left corner
-        // Repositioned to Column 5 (E) - index 4
-        // Adjusted padding for perfect visual centering within the 45-width / 140-height cell
-        worksheet.addImage(imageId, {
-          tl: { col: 4.15, row: rowNumber - 1 + 0.15 }, 
-          ext: { width: 170, height: 170 }, 
-          editAs: 'oneCell' // Locks image so it moves/resizes nicely with the row
+        row.height = 140;
+        row.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          };
+          cell.font = { size: 12 };
         });
-      } catch (err) {
-        console.warn(`Failed to fetch image for excel part ${part.partNumber}: ${err.message}`);
-      }
+
+        if (!data.error && data.buffer) {
+          const imageId = workbook.addImage({
+            buffer: data.buffer,
+            extension: data.extension,
+          });
+
+          worksheet.addImage(imageId, {
+            tl: { col: 4.15, row: rowNumber - 1 + 0.15 },
+            ext: { width: 170, height: 170 },
+            editAs: 'oneCell'
+          });
+        }
+
+        // Update Progress dynamically per part
+        exportProgress.current = i + index + 1;
+      });
+
+      console.log(`✨ Excel Build Progress: ${Math.min(i + BATCH_SIZE, totalParts)}/${totalParts} parts processed...`);
     }
 
     const tempDir = path.join(__dirname, '../temp');
@@ -372,9 +428,12 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
     const tempFile = path.join(tempDir, `export-excel-${Date.now()}.xlsx`);
 
     await workbook.xlsx.writeFile(tempFile);
+    console.log('✅ Workbook saved to disk.');
+
+    // Finalize Tracker
+    exportProgress.status = 'idle';
 
     const stat = fs.statSync(tempFile);
-
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=tvs-parts-list.xlsx');
     res.setHeader('Content-Length', stat.size);
@@ -390,6 +449,7 @@ router.get('/export/excel', protect, adminOnly, async (req, res) => {
 
   } catch (error) {
     console.error('Excel export error:', error);
+    exportProgress.status = 'idle';
     res.status(500).json({ message: 'Failed to create Excel file' });
   }
 });
